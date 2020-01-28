@@ -60,9 +60,20 @@ else
     quarterPath=${1%/}
 
     # calculate path names
-    quarterPath="$quarterPath/$BACKUP_DIR/$(uname -n)/$(date +%Yq%q)"
+    qtr=$(( ($(date +%m) - 1) / 3 + 1 ))
+    quarterPath="$quarterPath/$BACKUP_DIR/$(uname -n)/$(date +%Y)q$qtr"
     today=$(date +%F)
     backupPath="$quarterPath/$today"
+
+    # create the quarterly directory if needed
+    # creating it here rather than later ensures the ls command
+    # doesn't fail when looking for the previous backup.
+    mkdir -p $quarterPath
+    mkStat=$?
+    if [[ "$mkStat" != 0 ]]; then
+        echo "Error $mkStat: Could not create directory $quarterPath"
+        exit 2
+    fi
 
     # find the previous backup subdirectory (most recent)
     prevBackup=$(ls -c --classify $quarterPath | egrep '*/$' | sed -n '1p')
@@ -110,7 +121,7 @@ else
         echo "Limited rsync logging for full backup" | tee -a $logFile
     fi
     echo "Command is: rsync $OPTS $SRC $backupPath" | tee -a $logFile
-    #rsync $OPTS $SRC $backupPath
+    rsync $OPTS $SRC $backupPath
     echo "Wait for sync..." | tee -a $logFile
     sync
     endTime=$(date +%s)
