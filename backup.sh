@@ -5,7 +5,9 @@
 # The mount point for the destination disk is assumed to be
 # /media/$USER/device-name where device-name is the name given on
 # the command line. The home directory will be copied (synced)
-# to /media/$USER/device-name/backup/hostname/yyyy-mm-dd.
+# to /media/$USER/device-name/backup/hostname/yyyyqn/yyyy-mm-dd.
+# A full backup is done once per quarter and incremental backups
+# thereafter.
 #
 # Since the backup directory is named with the date and not also the
 # time, if this script runs more than once in the same day, a new
@@ -19,11 +21,11 @@
 #
 # To do:
 # Allow one or two command line arguments.
-# Backup the /home directory from the local host a disk on the local host:
-#   incr.sh <destination-device>
+# Backup the /home directory from the local host to a disk on the local host:
+#   backup.sh <destination-device>
 # Backup the /home directory from a remote host to a disk on the local host:
-#   incr.sh <destination-device> <remote-hostname>
-#   incr.sh <remote-hostname> <destination-device>
+#   backup.sh <destination-device> <remote-hostname>
+#   backup.sh <remote-hostname> <destination-device>
 #
 # Note for future enhancement, to back up the RPi over the network:
 # rsync -a --delete --delete-excluded --info=progress2,stats --rsh=ssh pi@rpi:/home/pi /media/jack/data
@@ -50,66 +52,17 @@ elif [[ $# -ne 1 ]]; then
     exit 1
 else
     SRC="/home"
+    BACKUP_DIR="backup"
     OPTS='-ah --delete --info=progress2,stats'
     OPTS="$OPTS --exclude=/home/*/.cache/ --exclude=/home/*/.thumbnails/"
-    BACKUP_DIR="backup"
-    DEVICE=$1
-    USER_NAME=${SUDO_USER:-$USER}
 
-    # test whether the given device is available
-    devicePath="/media/$USER_NAME/$DEVICE"
-    if [ -d "$devicePath" ]; then
-        echo "Backing up to device: $devicePath"
-    else
-        echo "Error: Cannot find device: $devicePath"
-        exit 2
-    fi
+    # remove trailing slash from command line argument if present
+    quarterPath=${1%/}
 
-    # test whether the backup directory is available
-    backupPath="$devicePath/$BACKUP_DIR"
-    if [ -d "$backupPath" ]; then
-        echo "Directory exists: $backupPath"
-    else
-        echo "Creating directory: $backupPath"
-        mkdir $backupPath
-        mkStat=$?
-        if [[ "$mkStat" != 0 ]]; then
-            echo "Error $mkStat: Could not create directory $backupPath"
-            exit 2
-        fi
-    fi
-
-    # test whether the hostname directory is available
-    hostPath="$backupPath/$(uname -n)"
-    if [ -d "$hostPath" ]; then
-        echo "Directory exists: $hostPath"
-    else
-        echo "Creating directory: $hostPath"
-        mkdir $hostPath
-        mkStat=$?
-        if [[ "$mkStat" != 0 ]]; then
-            echo "Error $mkStat: Could not create directory $hostPath"
-            exit 2
-        fi
-    fi
-
-    # test whether the quarter directory is available
-    quarterPath="$hostPath/$(date +%Yq%q)"
-    if [ -d "$quarterPath" ]; then
-        echo "Directory exists: $quarterPath"
-    else
-        echo "Creating directory: $quarterPath"
-        mkdir $quarterPath
-        mkStat=$?
-        if [[ "$mkStat" != 0 ]]; then
-            echo "Error $mkStat: Could not create directory $quarterPath"
-            exit 2
-        fi
-    fi
-
-    # make the final backup directory name using the current date
+    # calculate path names
+    quarterPath="$quarterPath/$BACKUP_DIR/$(uname -n)/$(date +%Yq%q)"
     today=$(date +%F)
-    backupDir="$quarterPath/$today"
+    backupPath="$quarterPath/$today"
 
     # find the previous backup subdirectory (most recent)
     prevBackup=$(ls -c --classify $quarterPath | egrep '*/$' | sed -n '1p')
@@ -117,7 +70,7 @@ else
         prevBackup=$quarterPath/${prevBackup::-1}
     fi
     # be sure the backup directory name isn't the same as the previous
-    if [ "$backupDir" == "$prevBackup" ]; then
+    if [ "$backupPath" == "$prevBackup" ]; then
         prevBackup=$(ls -c --classify $hostPath | egrep '*/$' | sed -n '2p')
         if [ -n "$prevBackup" ]; then
             prevBackup=$quarterPath/${prevBackup::-1}
@@ -136,23 +89,18 @@ else
         OPTS="$OPTS --log-file=$logFile --log-file-format="
     fi
 
-    # test whether the backup directory is available
-    if [ -d "$backupDir" ]; then
-        echo "Directory exists: $backupDir"
-    else
-        echo "Creating directory: $backupDir"
-        mkdir $backupDir
-        mkStat=$?
-        if [[ "$mkStat" != 0 ]]; then
-            echo "Error $mkStat: Could not create directory $backupDir"
-            exit 2
-        fi
+    # create the backup directory if needed
+    mkdir -p $backupPath
+    mkStat=$?
+    if [[ "$mkStat" != 0 ]]; then
+        echo "Error $mkStat: Could not create directory $backupPath"
+        exit 2
     fi
 
     # do the backup
     startTime=$(date +%s)
     echo "Backup starting at $(date --date=@$startTime "+%F %T")" | tee -a $logFile
-    echo "Backing up to $backupDir" | tee -a $logFile
+    echo "Backing up to $backupPath" | tee -a $logFile
     echo "Log file is $logFile" | tee -a $logFile
     if [ -n "$prevBackup" ]; then
         echo "This is an incremental backup" | tee -a $logFile
@@ -161,8 +109,8 @@ else
         echo "No previous backup found, this is a full backup" | tee -a $logFile
         echo "Limited rsync logging for full backup" | tee -a $logFile
     fi
-    echo "Command is: rsync $OPTS $SRC $backupDir" | tee -a $logFile
-    rsync $OPTS $SRC $backupDir
+    echo "Command is: rsync $OPTS $SRC $backupPath" | tee -a $logFile
+    #rsync $OPTS $SRC $backupPath
     echo "Wait for sync..." | tee -a $logFile
     sync
     endTime=$(date +%s)
