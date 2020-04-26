@@ -1,11 +1,8 @@
 #!/bin/bash
-# Back up the /home directory to another hard disk using rsync.
-# One argument is required on the command line, the device name
-# of the hard disk where the backup is to be written to.
-# The mount point for the destination disk is assumed to be
-# /media/$USER/device-name where device-name is the name given on
-# the command line. The home directory will be copied (synced)
-# to /media/$USER/device-name/backup/hostname/yyyyqn/yyyy-mm-dd.
+# Back up the /home directory to another directory.
+# One argument is required on the command line, the name of
+# the target# directory where the backup is to be written to.
+# The home directory will be copied (synced) to this directory.
 # A full backup is done once per quarter and incremental backups
 # thereafter.
 #
@@ -18,19 +15,6 @@
 #
 # Jack Christensen 01Apr2016
 # Enhanced to do incremental backups Jan 2019.
-#
-# To do:
-# Allow one or two command line arguments.
-# Backup the /home directory from the local host to a disk on the local host:
-#   backup.sh <destination-device>
-# Backup the /home directory from a remote host to a disk on the local host:
-#   backup.sh <destination-device> <remote-hostname>
-#   backup.sh <remote-hostname> <destination-device>
-#
-# Note for future enhancement, to back up the RPi over the network:
-# rsync -a --delete --delete-excluded --info=progress2,stats --rsh=ssh pi@rpi:/home/pi /media/jack/data
-# owner and group are not preserved but are changed to the current user on the
-# receiving system, even if run with sudo. See the rsync --owner and --group options.
 
 usage()
 {
