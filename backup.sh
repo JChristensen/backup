@@ -1,7 +1,7 @@
 #!/bin/bash
 # Back up the /home directory to another directory.
 # One argument is required on the command line, the name of
-# the target# directory where the backup is to be written to.
+# the target directory where the backup is to be written to.
 # The home directory will be copied (synced) to this directory.
 # A full backup is done once per quarter and incremental backups
 # thereafter.
