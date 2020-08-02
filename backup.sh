@@ -44,7 +44,9 @@ else
     quarterPath=${1%/}
 
     # calculate path names
-    qtr=$(( ($(date +%m) - 1) / 3 + 1 ))
+    m=$(date +%m)   # month
+    m=${m#0}        # remove leading zero if present (prevent interpretation as octal)
+    qtr=$(( ($m - 1) / 3 + 1 ))
     quarterPath="$quarterPath/$BACKUP_DIR/$(uname -n)/$(date +%Y)q$qtr"
     today=$(date +%F)
     backupPath="$quarterPath/$today"
