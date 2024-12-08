@@ -62,13 +62,17 @@ else
     fi
 
     # find the previous backup subdirectory (most recent)
-    prevBackup=$(ls -c --classify $quarterPath | egrep '*/$' | sed -n '1p')
+    prevBackup=$(ls -c --classify $quarterPath | egrep '.*/$' | sed -n '1p')
     if [ -n "$prevBackup" ]; then
         prevBackup=$quarterPath/${prevBackup::-1}
     fi
-    # be sure the backup directory name isn't the same as the previous
+    # we assume only one backup per day. if more than one run is made on
+    # the same day, then we will overwrite the destination from the previous run. 
+    # this will cause the calculated backup directory name to be the same as
+    # the previous backup, in which case we need to use the second most recent
+    # as the prevBackup (link-dest).
     if [ "$backupPath" == "$prevBackup" ]; then
-        prevBackup=$(ls -c --classify $hostPath | egrep '*/$' | sed -n '2p')
+        prevBackup=$(ls -c --classify $quarterPath | egrep '.*/$' | sed -n '2p')
         if [ -n "$prevBackup" ]; then
             prevBackup=$quarterPath/${prevBackup::-1}
         fi
