@@ -33,7 +33,7 @@ if [[ $UID != $ROOT_UID ]]; then
 elif [[ $# -ne 1 ]]; then
     echo "Expecting one command line argument."
     usage
-    exit 1
+    exit 2
 else
     SRC="/home"
     BACKUP_DIR="backup"
@@ -58,7 +58,7 @@ else
     mkStat=$?
     if [[ "$mkStat" != 0 ]]; then
         echo "Error $mkStat: Could not create directory $quarterPath"
-        exit 2
+        exit 3
     fi
 
     # find the previous backup subdirectory (most recent)
@@ -95,27 +95,36 @@ else
     mkStat=$?
     if [[ "$mkStat" != 0 ]]; then
         echo "Error $mkStat: Could not create directory $backupPath"
-        exit 2
+        exit 4
     fi
 
-    # do the backup
-    startTime=$(date +%s)
-    echo "Backup starting at $(date --date=@$startTime "+%F %T")" | tee -a $logFile
-    echo "Backing up to $backupPath" | tee -a $logFile
-    echo "Log file is $logFile" | tee -a $logFile
+    # summarize paths & backup type
+    echo -e "\nBacking up to:   $backupPath" | tee -a $logFile
+    echo "Log file is:     $logFile" | tee -a $logFile
     if [ -n "$prevBackup" ]; then
-        echo "This is an incremental backup" | tee -a $logFile
-        echo "Previous backup used as link-dest: $prevBackup" | tee -a $logFile
+        echo "Previous backup: $prevBackup" | tee -a $logFile
+        echo "This is an incremental backup." | tee -a $logFile
     else
-        echo "No previous backup found, this is a full backup" | tee -a $logFile
-        echo "Limited rsync logging for full backup" | tee -a $logFile
+        echo "No previous backup found, this is a full backup." | tee -a $logFile
+        echo "Limited rsync logging for full backup." | tee -a $logFile
     fi
-    echo "Command is: rsync $OPTS $SRC $backupPath" | tee -a $logFile
-    rsync $OPTS $SRC $backupPath
-    echo "Wait for sync..." | tee -a $logFile
-    sync
-    endTime=$(date +%s)
-    lapse=$(($endTime - $startTime))
-    echo "Backup finished at $(date --date=@$endTime "+%F %T") Lapse $(date -u --date=@$lapse "+%H:%M:%S")" | tee -a $logFile
-    echo -e "--------------------------------\n" >>$logFile
+
+    # proceed with backup, after user approves
+    read -p $'\nProceed? [Y/n] '
+    r=${REPLY,,}    # make lower case
+    if [[ "$r" =~ ^[[:space:]]*n ]]; then
+        echo "Backup aborted."
+        exit 5
+    else
+        echo -e "\n$ rsync $OPTS $SRC $backupPath\n" | tee -a $logFile
+        startTime=$(date +%s)
+        echo "Backup starting at $(date --date=@$startTime "+%F %T")" | tee -a $logFile
+        rsync $OPTS $SRC $backupPath
+        echo "Wait for sync..." | tee -a $logFile
+        sync
+        endTime=$(date +%s)
+        lapse=$(($endTime - $startTime))
+        echo "Backup finished at $(date --date=@$endTime "+%F %T") Lapse $(date -u --date=@$lapse "+%H:%M:%S")" | tee -a $logFile
+        echo -e "--------------------------------\n" >>$logFile
+    fi
 fi
